@@ -1,0 +1,28 @@
+{
+    "tags": [
+      {
+        "id": 1,
+        "nombre": "vitamina-d",
+        "imagen_url": "https://storage.dsem.app/food-catalog/tag/img/vitaminaDimg.png",
+        "icon_url": "https://storage.dsem.app/food-catalog/tag/icon/vitaminaDIcon.jpg",
+        "color": "#4CAF50",
+        "updated_at": "2026-02-14T10:00:00Z"
+      }
+    ],
+    "alimentos": [
+      {
+        "id": 1,
+        "nombre": "Salmón",
+        "calorias": 208,
+        "proteinas": 20,
+        "carbohidratos": 0,
+        "grasas": 13,
+        "fibra": 0,
+        "imagen_url": "https://storage.dsem.app/food-catalog/food/img/salmonImg.jpg",
+        "icon_url": "https://storage.dsem.app/food-catalog/food/icon/salmonIcon.png",
+        "activo": true,
+        "tags": ["vitamina-b"],
+        "updated_at": "2026-02-14T10:00:00Z"
+      }
+    ]
+  }
