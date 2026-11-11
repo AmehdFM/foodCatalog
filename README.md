@@ -1,357 +1,129 @@
-# Food Catalog API 🍎
+# Food Catalog API | Catálogo nutricional para aplicaciones
 
-API RESTful para gestionar un catálogo de alimentos con información nutricional y sistema de etiquetado flexible para aplicaciones de gyms y entrenadores personales.
+API REST en Go para consultar alimentos, información nutricional y etiquetas desde aplicaciones de entrenamiento, nutrición o gestión de gimnasios.
 
-## 🚀 Características
+## El problema que resuelve
 
-- **Catálogo de Alimentos**: Información nutricional completa (calorías, proteínas, carbohidratos, grasas, fibra)
-- **Sistema de Tags**: Etiquetado flexible para vitaminas, minerales, restricciones dietéticas, etc.
-- **Filtros Avanzados**: Búsqueda por nombre, tags múltiples, fechas, estado
-- **Paginación**: Control de resultados con metadata completa
-- **Autenticación**: Sistema de tokens para proteger los endpoints
-- **Batch Queries**: Consulta múltiples recursos en una sola petición
-- **Seed System**: Carga masiva de datos desde archivo JSON
+Separa el catálogo de alimentos del resto de una aplicación. Un cliente puede buscar alimentos, recuperar sus nutrientes y reutilizar etiquetas sin mantener esa lógica dentro de cada interfaz.
 
-## 📋 Requisitos
+El repositorio implementa consultas y carga de datos por línea de comandos; no incluye una interfaz de administración ni un servicio de recomendaciones nutricionales.
 
-- Go 1.21+
-- PostgreSQL 12+
+## Funcionalidades
 
-## 🛠️ Instalación
+- Consulta de calorías, proteínas, carbohidratos, grasas y fibra.
+- Relación de alimentos con múltiples etiquetas.
+- Búsqueda por nombre, etiquetas, fechas y estado.
+- Paginación y metadatos de resultados, con un máximo de 100 elementos por página.
+- Consultas por ID y por lotes.
+- Protección de rutas mediante tokens configurados.
+- Comando para cargar o actualizar alimentos y etiquetas desde JSON.
+- Estado de servicio y base de datos mediante `/health`.
 
-1. **Clonar el repositorio**
+## Tecnologías y arquitectura
+
+**Go · Gorilla Mux · PostgreSQL · GORM · godotenv · Docker**
+
+| Ruta | Responsabilidad |
+|---|---|
+| [cmd/server/](cmd/server/) | Punto de entrada de la API |
+| [cmd/seed/](cmd/seed/) | Carga de datos |
+| [config/](config/) | Variables de entorno y tokens |
+| [database/](database/) | Conexión y migraciones automáticas |
+| [handlers/](handlers/) | Endpoints de alimentos, etiquetas y estado |
+| [middleware/](middleware/) | Autorización por token y CORS |
+| [models/](models/) | Modelos y relaciones |
+| [utils/](utils/) | Parámetros y respuestas |
+| [data.json](data.json) | Datos de ejemplo |
+
+**El servidor del catálogo está en `cmd/server/main.go`.** El `main.go` de la raíz es un servidor de ejemplo separado y no expone esta API.
+
+## Ejecutar localmente
+
+Requisitos: Go compatible con [go.mod](go.mod), que declara Go 1.21, y una base PostgreSQL disponible. Crear una base de desarrollo `food_catalog` y su usuario antes de arrancar.
+
 ```bash
-git clone <tu-repo>
-cd food-catalog-api
-```
-
-2. **Instalar dependencias**
-```bash
+git clone https://github.com/AmehdFM/foodCatalog.git
+cd foodCatalog
 go mod download
 ```
 
-3. **Configurar variables de entorno**
-```bash
-cp .env.example .env
-# Editar .env con tus credenciales
-```
+Crear manualmente un archivo `.env` en la raíz:
 
-Configuración necesaria en `.env`:
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=tupassword
-DB_NAME=food_catalog
-DB_SSLMODE=disable
-
+```dotenv
+DATABASE_URL=postgres://usuario:password@localhost:5432/food_catalog?sslmode=disable
 SERVER_PORT=8080
-
-# Tokens separados por comas
-AUTH_TOKENS=token123,token456,token789
+AUTH_TOKENS=reemplazar-por-un-token-propio
 ```
 
-4. **Crear la base de datos**
+No se necesita copiar un `.env.example`: ese archivo no está incluido. La configuración lee `DATABASE_URL`; no utiliza variables `DB_HOST`, `DB_USER` o `DB_PASSWORD` por separado. El archivo `.env` es opcional si estas variables ya están definidas en el proceso.
+
 ```bash
-createdb food_catalog
+go run ./cmd/seed -file=data.json
+go run ./cmd/server
 ```
 
-## 🎯 Uso
+El servidor y el comando seed conectan a la base y ejecutan la migración de modelos al iniciar. El seed identifica los registros por nombre y compara `updated_at` para decidir las actualizaciones; usar datos de desarrollo.
 
-### Iniciar el servidor
+## Configuración
+
+| Variable | Uso |
+|---|---|
+| `DATABASE_URL` | Conexión PostgreSQL, obligatoria |
+| `AUTH_TOKENS` | Uno o varios tokens válidos separados por comas, obligatorio |
+| `SERVER_PORT` | Puerto HTTP; predeterminado `8080` |
+
+Los tokens identifican acceso al servicio; no implementan cuentas de usuario, roles ni sesiones individuales.
+
+## API
+
+Todas las rutas de `/api/v1` requieren autorización. `/health` no requiere token.
+
+| Método | Ruta | Función |
+|---|---|---|
+| GET | `/health` | Estado |
+| GET | `/api/v1/alimentos` | Alimentos con filtros |
+| GET | `/api/v1/alimentos/{id}` | Detalle |
+| GET | `/api/v1/alimentos/batch?ids=1,2,3` | Consulta múltiple |
+| GET | `/api/v1/tags` | Etiquetas |
+| GET | `/api/v1/tags/{id}` | Etiqueta por ID |
+| GET | `/api/v1/tags/nombre/{nombre}` | Etiqueta por nombre |
+| GET | `/api/v1/tags/batch?ids=1,2,3` | Etiquetas por lote |
+
+Filtros de alimentos: `page`, `limit`, `search`, `tags`, `activo`, `date_from`, `date_to`, `sort_by` y `sort_order`. Las fechas usan `YYYY-MM-DD`.
+
 ```bash
-go run cmd/server/main.go
+curl http://localhost:8080/health
+curl -H "Authorization: Bearer reemplazar-por-un-token-propio" \
+  "http://localhost:8080/api/v1/alimentos?search=pollo&page=1&limit=10"
+curl -H "Authorization: Bearer reemplazar-por-un-token-propio" \
+  "http://localhost:8080/api/v1/alimentos?tags=vegano"
 ```
 
-El servidor estará disponible en `http://localhost:8080`
+Los valores de búsqueda son ilustrativos; los resultados dependen del conjunto cargado.
 
-### Cargar datos desde JSON
+### Formato de carga
+
+[data.json](data.json) contiene las colecciones `tags` y `alimentos`. Los alimentos incluyen nutrientes, estado, etiquetas por nombre y fecha `updated_at` en RFC 3339. Las etiquetas se procesan antes que los alimentos.
+
+## Compilación y Docker
+
 ```bash
-go run cmd/seed/main.go -file=data.json
+go build -o server ./cmd/server
+go build -o seed ./cmd/seed
+docker build -t food-catalog-api .
+docker run --rm --env-file .env -p 8080:8080 food-catalog-api
 ```
 
-El comando seed:
-- Crea nuevos registros si no existen
-- Actualiza registros existentes si la fecha `updated_at` del JSON es más reciente
-- Omite registros que no han cambiado
+Para Docker, modificar la conexión para que PostgreSQL sea accesible desde el contenedor. Una dirección `localhost` dentro del contenedor no apunta al equipo anfitrión.
 
-## 📡 API Endpoints
+El Dockerfile incluye los binarios de servidor y seed. La versión de Go de la etapa de compilación debe ser compatible con las dependencias resueltas.
 
-### Health Check
-```http
-GET /health
-```
+## Estado y mejoras pendientes
 
-No requiere autenticación. Verifica el estado del servidor y la base de datos.
+API de consulta con separación por responsabilidades y documentación de integración. No hay una suite de pruebas automatizadas en el repositorio.
 
-### Autenticación
+Antes de exponerla públicamente, restringir `sort_by` a columnas permitidas: actualmente se incorpora a una expresión de ordenamiento SQL. También revisar CORS, gestión de tokens, manejo de errores y tiempos de espera HTTP. La información nutricional depende del origen y revisión de los datos cargados.
 
-Todos los endpoints bajo `/api/v1` requieren un header de autorización:
-```http
-Authorization: Bearer tu-token-aqui
-```
+## Autor
 
-O simplemente:
-```http
-Authorization: tu-token-aqui
-```
-
-### Alimentos
-
-#### Listar alimentos
-```http
-GET /api/v1/alimentos
-```
-
-**Parámetros de query:**
-- `page` (int): Número de página (default: 1)
-- `limit` (int): Resultados por página (default: 20, max: 100)
-- `search` (string): Búsqueda por nombre
-- `tags` (string): Filtrar por tags (separados por comas). Ej: `vegano,proteina-alta`
-- `activo` (bool): Filtrar por estado activo
-- `date_from` (date): Fecha desde (formato: YYYY-MM-DD)
-- `date_to` (date): Fecha hasta (formato: YYYY-MM-DD)
-- `sort_by` (string): Campo para ordenar (ej: `nombre`, `calorias`, `created_at`)
-- `sort_order` (string): Orden ascendente o descendente (`asc` o `desc`)
-
-**Ejemplos:**
-```bash
-# Listar todos los alimentos
-curl -H "Authorization: token123" http://localhost:8080/api/v1/alimentos
-
-# Buscar alimentos veganos con proteína alta
-curl -H "Authorization: token123" \
-  "http://localhost:8080/api/v1/alimentos?tags=vegano,proteina-alta"
-
-# Buscar "pollo" ordenado por proteínas
-curl -H "Authorization: token123" \
-  "http://localhost:8080/api/v1/alimentos?search=pollo&sort_by=proteinas&sort_order=desc"
-
-# Paginación
-curl -H "Authorization: token123" \
-  "http://localhost:8080/api/v1/alimentos?page=2&limit=10"
-```
-
-**Respuesta:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "nombre": "Pechuga de pollo",
-      "calorias": 165,
-      "proteinas": 31,
-      "carbohidratos": 0,
-      "grasas": 3.6,
-      "fibra": 0,
-      "imagen_url": "https://example.com/images/pollo.jpg",
-      "icon_url": "https://example.com/icons/pollo.svg",
-      "activo": true,
-      "tags": [
-        {
-          "id": 2,
-          "nombre": "proteina-alta",
-          "imagen_url": "https://example.com/images/proteina.jpg",
-          "icon_url": "https://example.com/icons/proteina.svg",
-          "color": "#FF5722",
-          "created_at": "2024-01-15T10:00:00Z",
-          "updated_at": "2024-01-15T10:00:00Z"
-        }
-      ],
-      "created_at": "2024-01-15T10:00:00Z",
-      "updated_at": "2024-01-15T10:00:00Z"
-    }
-  ],
-  "meta": {
-    "current_page": 1,
-    "per_page": 20,
-    "total_pages": 1,
-    "total_items": 10
-  }
-}
-```
-
-#### Obtener alimento por ID
-```http
-GET /api/v1/alimentos/{id}
-```
-
-**Ejemplo:**
-```bash
-curl -H "Authorization: token123" http://localhost:8080/api/v1/alimentos/1
-```
-
-#### Obtener múltiples alimentos por IDs
-```http
-GET /api/v1/alimentos/batch?ids=1,2,3
-```
-
-**Ejemplo:**
-```bash
-curl -H "Authorization: token123" \
-  "http://localhost:8080/api/v1/alimentos/batch?ids=1,2,5"
-```
-
-### Tags
-
-#### Listar tags
-```http
-GET /api/v1/tags
-```
-
-**Parámetros de query:**
-- `page` (int): Número de página (default: 1)
-- `limit` (int): Resultados por página (default: 20, max: 100)
-- `search` (string): Búsqueda por nombre
-- `date_from` (date): Fecha desde (formato: YYYY-MM-DD)
-- `date_to` (date): Fecha hasta (formato: YYYY-MM-DD)
-- `sort_by` (string): Campo para ordenar
-- `sort_order` (string): Orden (`asc` o `desc`)
-
-**Ejemplo:**
-```bash
-curl -H "Authorization: token123" http://localhost:8080/api/v1/tags
-```
-
-#### Obtener tag por ID
-```http
-GET /api/v1/tags/{id}
-```
-
-**Ejemplo:**
-```bash
-curl -H "Authorization: token123" http://localhost:8080/api/v1/tags/1
-```
-
-#### Obtener tag por nombre
-```http
-GET /api/v1/tags/nombre/{nombre}
-```
-
-**Ejemplo:**
-```bash
-curl -H "Authorization: token123" http://localhost:8080/api/v1/tags/nombre/vegano
-```
-
-#### Obtener múltiples tags por IDs
-```http
-GET /api/v1/tags/batch?ids=1,2,3
-```
-
-**Ejemplo:**
-```bash
-curl -H "Authorization: token123" \
-  "http://localhost:8080/api/v1/tags/batch?ids=1,3,5"
-```
-
-## 📊 Estructura del Proyecto
-```
-food-catalog-api/
-├── cmd/
-│   ├── server/         # Servidor principal
-│   │   └── main.go
-│   └── seed/           # Comando para cargar datos
-│       └── main.go
-├── config/             # Configuración
-│   └── config.go
-├── database/           # Conexión y migraciones
-│   └── database.go
-├── handlers/           # Handlers HTTP
-│   ├── alimento_handlers.go
-│   ├── tag_handlers.go
-│   └── health_handlers.go
-├── middleware/         # Middlewares
-│   └── auth.go
-├── models/             # Modelos de datos
-│   ├── alimento.go
-│   └── tag.go
-├── utils/              # Utilidades
-│   ├── response.go
-│   └── query.go
-├── data.json           # Datos de ejemplo
-├── .env.example        # Ejemplo de variables de entorno
-├── .gitignore
-├── go.mod
-└── README.md
-```
-
-## 💾 Formato del archivo data.json
-```json
-{
-  "tags": [
-    {
-      "id": 1,
-      "nombre": "vegano",
-      "imagen_url": "https://example.com/images/vegano.jpg",
-      "icon_url": "https://example.com/icons/vegano.svg",
-      "color": "#4CAF50",
-      "updated_at": "2024-01-15T10:00:00Z"
-    }
-  ],
-  "alimentos": [
-    {
-      "id": 1,
-      "nombre": "Pechuga de pollo",
-      "calorias": 165,
-      "proteinas": 31,
-      "carbohidratos": 0,
-      "grasas": 3.6,
-      "fibra": 0,
-      "imagen_url": "https://example.com/images/pollo.jpg",
-      "icon_url": "https://example.com/icons/pollo.svg",
-      "activo": true,
-      "tags": ["proteina-alta", "sin-gluten"],
-      "updated_at": "2024-01-15T10:00:00Z"
-    }
-  ]
-}
-```
-
-## 🔐 Seguridad
-
-- Los tokens se almacenan en variables de entorno
-- Todos los endpoints (excepto `/health`) requieren autenticación
-- CORS habilitado para permitir peticiones desde cualquier origen
-
-## 🚀 Despliegue
-
-### Compilar binarios
-```bash
-# Servidor
-go build -o bin/server cmd/server/main.go
-
-# Seed
-go build -o bin/seed cmd/seed/main.go
-```
-
-### Ejecutar en producción
-```bash
-./bin/server
-```
-
-## 📝 Ejemplos de Casos de Uso
-
-### 1. App de gym busca alimentos veganos altos en proteína
-```bash
-curl -H "Authorization: token123" \
-  "http://localhost:8080/api/v1/alimentos?tags=vegano,proteina-alta&limit=50"
-```
-
-### 2. Nutricionista busca alimentos con vitamina B12
-```bash
-curl -H "Authorization: token123" \
-  "http://localhost:8080/api/v1/alimentos?tags=vitamina-b12"
-```
-
-### 3. App necesita información de alimentos específicos
-```bash
-curl -H "Authorization: token123" \
-  "http://localhost:8080/api/v1/alimentos/batch?ids=1,5,8,12,15"
-```
-
-### 4. Buscar alimentos recién agregados
-```bash
-curl -H "Authorization: token123" \
-  "http://localhost:8080/api/v1/alimentos?date_from=2024-01-01&sort_by=created_at&sort_order=desc"
-```
+[Amehd Mendez](https://github.com/AmehdFM) · Backend e integración de sistemas.
